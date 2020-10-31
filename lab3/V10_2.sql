@@ -42,3 +42,101 @@ GO
 	и заполните этими значениями поле SumSubTotal. Подсчет суммы осуществите в Common Table Expression (CTE)
 */
 
+WITH SumSubTotal_CTE(EmployeeID, SumSubTotal) AS(
+	SELECT EmployeeID, SUM(SubTotal) 
+	FROM Purchasing.PurchaseOrderHeader
+	GROUP BY EmployeeID
+)
+INSERT INTO #Employee(
+	BusinessEntityID,
+	NationalIDNumber,
+	LoginID,
+	JobTitle,
+	BirthDate,
+	MaritalStatus,
+	Gender,
+	HireDate,
+	VacationHours,
+	SickLeaveHours,
+	ModifiedDate,
+    ID,
+	SumSubTotal
+)
+SELECT
+	e.BusinessEntityID,
+	e.NationalIDNumber,
+	e.LoginID,
+	e.JobTitle,
+	e.BirthDate,
+	e.MaritalStatus,
+	e.Gender,
+	e.HireDate,
+	e.VacationHours,
+	e.SickLeaveHours,
+	e.ModifiedDate,
+	e.ID,
+	cte.SumSubTotal
+FROM 
+	dbo.Employee e
+LEFT JOIN SumSubTotal_CTE AS cte ON e.BusinessEntityID = cte.EmployeeID;
+
+/*
+	удалите из таблицы dbo.Employee строки, где LeaveHours > 160
+*/
+
+DELETE FROM dbo.Employee WHERE LeaveHours > 160;
+GO
+
+/*
+	напишите Merge выражение, использующее dbo.Employee как target, 
+	а временную таблицу как source. Для связи target и source используйте ID. 
+	Обновите поле SumSubTotal, если запись присутствует в source и target. 
+	Если строка присутствует во временной таблице, но не существует в target, 
+	добавьте строку в dbo.Employee. Если в dbo.Employee присутствует такая строка, 
+	которой не существует во временной таблице, удалите строку из dbo.Employee
+*/
+
+SET IDENTITY_INSERT dbo.Employee ON;
+GO
+
+MERGE
+    dbo.Employee AS trg
+	USING #Employee AS src
+	ON (trg.ID = src.ID)
+WHEN MATCHED THEN
+    UPDATE 
+	SET trg.SumSubTotal  = src.SumSubTotal
+WHEN NOT MATCHED BY TARGET THEN
+	INSERT(
+		BusinessEntityID,
+		NationalIDNumber,
+		LoginID,
+		JobTitle,
+		BirthDate,
+		MaritalStatus,
+		Gender,
+		HireDate,
+		VacationHours,
+		SickLeaveHours,
+		ModifiedDate,
+		ID,
+		SumSubTotal	)
+	VALUES(
+		BusinessEntityID,
+		NationalIDNumber,
+		LoginID,
+		JobTitle,
+		BirthDate,
+		MaritalStatus,
+		Gender,
+		HireDate,
+		VacationHours,
+		SickLeaveHours,
+		ModifiedDate,
+		ID,
+		SumSubTotal	)
+WHEN NOT MATCHED BY SOURCE THEN 
+	DELETE;
+
+SET IDENTITY_INSERT dbo.Employee OFF;
+GO
